@@ -1,6 +1,7 @@
 {
   "name": "@chmolto/angular-core",
-  "version": "1.0.2",
+  "description": "A reusable core library for NestJS projects that provides base service and repository patterns with advanced CRUD operations, pagination, and filtering capabilities.",
+  "version": "1.0.3",
   "peerDependencies": {
     "@angular/common": "^20.0.0",
     "@angular/core": "^20.0.0",
@@ -9,5 +10,15 @@
   "dependencies": {
     "tslib": "^2.3.0"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "author": "Christian Moltó <chfus@proton.me>",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chmolto/angular-core"
+  },
+  "homepage": "https://github.com/chmolto/angular-core#readme",
+  "bugs": {
+    "url": "https://github.com/chmolto/angular-core/issues"
+  }
 }
