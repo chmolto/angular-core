@@ -1,7 +1,7 @@
 {
   "name": "@chmolto/angular-core",
   "description": "A reusable core library for NestJS projects that provides base service and repository patterns with advanced CRUD operations, pagination, and filtering capabilities.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "peerDependencies": {
     "@angular/common": "^20.0.0",
     "@angular/core": "^20.0.0",
