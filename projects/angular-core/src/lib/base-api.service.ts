@@ -23,10 +23,15 @@ export class BaseApiService {
   public static unauthorized$ =
     BaseApiService.unauthorizedSubject.asObservable();
 
+  /** The base URL for the controller. */
+  protected controllerUrl: string = '';
+
   constructor(
     @Inject(API_URL) protected apiUrl: string,
     protected controllerPrefix: string = ''
-  ) {}
+  ) {
+    this.controllerUrl = this.apiUrl + this.controllerPrefix;
+  }
 
   protected get<T>(endpoint: string, options?: RequestOptions): Observable<T> {
     return this.makeRequest<T>(HttpMethod.GET, endpoint, options);
@@ -103,7 +108,7 @@ export class BaseApiService {
       responseType,
     };
 
-    const url = this.apiUrl + this.controllerPrefix + endpoint;
+    const url = this.controllerUrl + endpoint;
 
     let requestObservable: Observable<T>;
 
@@ -112,16 +117,31 @@ export class BaseApiService {
         requestObservable = this.http.get<T>(url, httpOptions) as Observable<T>;
         break;
       case HttpMethod.DELETE:
-        requestObservable = this.http.delete<T>(url, httpOptions) as Observable<T>;
+        requestObservable = this.http.delete<T>(
+          url,
+          httpOptions
+        ) as Observable<T>;
         break;
       case HttpMethod.POST:
-        requestObservable = this.http.post<T>(url, body, httpOptions) as Observable<T>;
+        requestObservable = this.http.post<T>(
+          url,
+          body,
+          httpOptions
+        ) as Observable<T>;
         break;
       case HttpMethod.PATCH:
-        requestObservable = this.http.patch<T>(url, body, httpOptions) as Observable<T>;
+        requestObservable = this.http.patch<T>(
+          url,
+          body,
+          httpOptions
+        ) as Observable<T>;
         break;
       case HttpMethod.PUT:
-        requestObservable = this.http.put<T>(url, body, httpOptions) as Observable<T>;
+        requestObservable = this.http.put<T>(
+          url,
+          body,
+          httpOptions
+        ) as Observable<T>;
         break;
       default:
         return throwError(() => new Error('Invalid HTTP method'));
