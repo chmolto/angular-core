@@ -1,6 +1,6 @@
 {
   "name": "@chmolto/angular-core",
-  "description": "A reusable core library for NestJS projects that provides base service and repository patterns with advanced CRUD operations, pagination, and filtering capabilities.",
+  "description": "Typed Angular service layer for REST APIs: CRUD, server-side pagination, filtering, file downloads and global error handling.",
   "version": "1.0.4",
   "peerDependencies": {
     "@angular/common": "^20.0.0",
@@ -20,5 +20,14 @@
   "homepage": "https://github.com/chmolto/angular-core#readme",
   "bugs": {
     "url": "https://github.com/chmolto/angular-core/issues"
-  }
+  },
+  "keywords": [
+    "angular",
+    "http",
+    "crud",
+    "pagination",
+    "rest",
+    "api-client",
+    "service"
+  ]
 }

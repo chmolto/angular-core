@@ -1,212 +1,188 @@
-# NGX API Client
+# @chmolto/angular-core
 
-A powerful, reusable, and standardized Angular service layer for making API requests. This library provides a `BaseCrudService` that standardizes all common data operations (CRUD, pagination, filtering) and offers centralized error and authorization handling.
+[![npm](https://img.shields.io/npm/v/@chmolto/angular-core?color=cb3837&logo=npm)](https://www.npmjs.com/package/@chmolto/angular-core)
+[![Angular 20](https://img.shields.io/badge/Angular-20-dd0031?logo=angular)](https://angular.dev)
+[![License: ISC](https://img.shields.io/badge/license-ISC-blue)](LICENSE)
 
----
+A small, typed service layer for talking to REST APIs from Angular.
+Extend one class and you get **CRUD, server-side pagination, filtering, file downloads
+and centralized error / 401 handling** — without rewriting the same `HttpClient` boilerplate
+in every service.
 
-### Features
+It is the frontend counterpart of [`@chmolto/nestjs-core`](https://github.com/chmolto/nestjs-core):
+both speak the same `SearchRequest` / `FilterOperator` format.
 
-- **Standardized CRUD:** Provides a `BaseCrudService` with ready-to-use methods like `findAll`, `findById`, `create`, `updateById`, `deleteById`, and more.
-- **Type-Safe:** Fully generic to work with your specific entity types and DTOs.
-- **Global Event Handling:** Emits static observables (`error$` and `unauthorized$`) from a base service, allowing your application to handle all API errors and 401 responses from a single location.
-- **Powerful Pagination:** Includes a `SearchRequestManager` class to easily handle server-side pagination, sorting, and filtering state.
-- **Configurable:** Easily configure the base API URL for different environments.
+```ts
+@Injectable({ providedIn: 'root' })
+export class UsersService extends BaseCrudService<User, CreateUserDto, UpdateUserDto> {
+  constructor(@Inject(API_URL) apiUrl: string) {
+    super(apiUrl, '/users');
+  }
+}
 
----
-
-### Installation
-
-To install the library, run the following command in your Angular project:
-
-```bash
-npm install ngx-api-client
+// users.findAll(), users.findById(1), users.create(dto), users.updateById(1, dto),
+// users.deleteById(1), users.deleteMany([1, 2]), users.findByPagination({ page: 2 })
 ```
 
-> **Note:** Replace `ngx-api-client` with your actual package name if you published it under a different one.
+## Features
 
----
+- **`BaseCrudService<T, CreateDTO, UpdateDTO>`** — typed CRUD methods out of the box.
+- **`SearchRequestManager`** — keeps page, page size, sorting, search and filters state, and reloads the data with a loading flag.
+- **Global error handling** — every service reports errors to `BaseApiService.error$` and 401s to `BaseApiService.unauthorized$`, so you show toasts and log out in one place.
+- **File downloads** — `downloadFile()` fetches a blob (e.g. an Excel export) and saves it.
+- **Per-request options** — skip the global error toast, send cookies or not, keep the stream open, pass query params.
 
-### Setup and Configuration
+## Installation
 
-You must import and configure the library in your root application module (e.g., `app.module.ts`).
+```bash
+npm install @chmolto/angular-core
+```
 
-#### 1. Import the Module
+Requires Angular 20 and RxJS 7.8.
 
-Use the `forRoot()` static method to provide the base URL for your API.
+## Setup
 
-```typescript
-// src/app/app.module.ts
+Provide `HttpClient` and your API base URL.
 
-import { NgModule } from "@angular/core";
-import { BrowserModule } from "@angular/platform-browser";
-import { HttpClientModule } from "@angular/common/http";
-import { NgxApiClientModule } from "ngx-api-client";
-import { environment } from "../environments/environment"; // Your environment file
+**Standalone app** (`app.config.ts`):
 
-import { AppComponent } from "./app.component";
+```ts
+import { provideHttpClient } from '@angular/common/http';
+import { API_URL } from '@chmolto/angular-core';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient(),
+    { provide: API_URL, useValue: environment.apiUrl }, // e.g. 'https://api.example.com'
+  ],
+};
+```
+
+**NgModule app**:
+
+```ts
+import { AngularCoreModule } from '@chmolto/angular-core';
 
 @NgModule({
-  declarations: [AppComponent],
-  imports: [
-    BrowserModule,
-    HttpClientModule,
-    // Configure the library with your backend URL
-    NgxApiClientModule.forRoot(environment.apiUrl),
-  ],
-  providers: [],
-  bootstrap: [AppComponent],
+  imports: [AngularCoreModule.forRoot(environment.apiUrl)],
+  providers: [provideHttpClient()],
 })
 export class AppModule {}
 ```
 
-#### 2. Handle Global Events (Recommended)
+> The final URL is `apiUrl + controllerPrefix + endpoint`, so use a base URL **without** a
+> trailing slash and prefixes that **start** with one (`'/users'`).
 
-In your main component (e.g., `app.component.ts`), you can subscribe to the static observables to handle errors and logouts globally.
+## Usage
 
-```typescript
-// src/app/app.component.ts
+### CRUD service
 
-import { Component, OnInit, inject } from "@angular/core";
-import { BaseApiService } from "ngx-api-client";
-// Import your own services for Toast notifications or State Management
-// import { ToastService } from './services/toast.service';
-// import { Store } from '@ngxs/store';
-// import { LogoutAction } from './store/auth.actions';
+```ts
+import { Inject, Injectable } from '@angular/core';
+import { API_URL, BaseCrudService } from '@chmolto/angular-core';
 
-@Component({
-  selector: "app-root",
-  templateUrl: "./app.component.html",
-})
-export class AppComponent implements OnInit {
-  // private toast = inject(ToastService);
-  // private store = inject(Store);
+@Injectable({ providedIn: 'root' })
+export class UsersService extends BaseCrudService<User, CreateUserDto, UpdateUserDto> {
+  constructor(@Inject(API_URL) apiUrl: string) {
+    super(apiUrl, '/users');
+  }
 
-  ngOnInit() {
-    BaseApiService.unauthorized$.subscribe(() => {
-      console.error("Unauthorized! User should be logged out.");
-      // this.store.dispatch(new LogoutAction());
-    });
+  // Custom endpoints use the protected helpers: get, post, put, patch, delete
+  activate(id: number) {
+    return this.post<User>(`/${id}/activate`, {});
+  }
 
-    BaseApiService.error$.subscribe((errorMessage) => {
-      console.error("An API error occurred:", errorMessage);
-      // this.toast.error(errorMessage);
-    });
+  // Download a file generated by the backend
+  exportToExcel(filters: Record<string, unknown>) {
+    return this.downloadFile('/export', filters, 'users.xlsx');
   }
 }
 ```
 
----
+| Method | Request |
+|---|---|
+| `findAll(params?)` | `GET /users?…params` |
+| `findById(id)` | `GET /users/:id` |
+| `create(dto)` | `POST /users` |
+| `updateById(id, dto)` | `PATCH /users/:id` |
+| `deleteById(id)` | `DELETE /users/:id` |
+| `deleteMany(ids)` | `POST /users/delete-many` with `{ ids }` |
+| `findByPagination(searchRequest)` | `POST /users/paginated` → `{ data, page, limit, totalPages, total }` |
 
-### Usage
+### Paginated tables
 
-#### 1. Create a Specific Service
+```ts
+import { FilterOperator, SearchRequestManager } from '@chmolto/angular-core';
 
-Create a new service for your application's entities (e.g., Users, Products) by extending `BaseCrudService`.
+@Component({ /* … */ })
+export class UsersTableComponent {
+  private users = inject(UsersService);
 
-```typescript
-// src/app/services/users.service.ts
+  readonly search = new SearchRequestManager((req) => this.users.findByPagination(req));
+  readonly page$ = this.search.loadData();       // emits a new page on every reload()
+  readonly loading$ = this.search.isLoading$;
 
-import { Injectable, inject } from "@angular/core";
-import { BaseCrudService, API_URL } from "ngx-api-client";
+  goToPage(page: number) {
+    this.search.page = page;
+    this.search.reload();
+  }
 
-// Define your DTOs and Entity types
-export interface User {
-  id: string;
-  name: string;
-  email: string;
+  filterByRole(role: string) {
+    this.search.filters = { role: { value: role, operator: FilterOperator.EQUALS } };
+    this.search.page = 1;
+    this.search.reload();
+  }
 }
-export interface CreateUserDTO {
-  name: string;
-  email: string;
-}
-export interface UpdateUserDTO {
-  name?: string;
-}
+```
 
-@Injectable({
-  providedIn: "root",
-})
-export class UsersService extends BaseCrudService<User, CreateUserDTO, UpdateUserDTO> {
+```html
+@if (page$ | async; as page) {
+  @for (user of page.data; track user.id) { <app-user-row [user]="user" /> }
+  <app-paginator [page]="page.page" [totalPages]="page.totalPages" (pageChange)="goToPage($event)" />
+}
+```
+
+Defaults: `page = 1`, `limit = 15`, `sortBy = 'createdAt'`, `sortOrder = 'desc'`.
+Available operators: `contains`, `equals`, `lessThan`, `greaterThan`, `startsWith`, `endsWith`, `in`, `between`.
+
+### Global error and 401 handling
+
+```ts
+export class AppComponent {
   constructor() {
-    // The API_URL is injected into the parent class.
-    // The second argument is the controller's route prefix.
-    super(inject(API_URL), "/users");
+    BaseApiService.error$.pipe(takeUntilDestroyed()).subscribe((message) => toast.error(message));
+    BaseApiService.unauthorized$.pipe(takeUntilDestroyed()).subscribe(() => auth.logout());
   }
 }
 ```
 
-#### 2. Using the Service for Basic CRUD
+Error messages are taken from the response body (`error.message`, joined if it is an array,
+as NestJS validation errors are), falling back to the HTTP status.
 
-Inject your new service into any component and use its methods.
+### Request options
 
-```typescript
-import { Component, OnInit, inject } from "@angular/core";
-import { UsersService } from "./services/users.service";
+Every protected helper accepts a `RequestOptions` object:
 
-@Component({
-  /* ... */
-})
-export class MyComponent implements OnInit {
-  private usersService = inject(UsersService);
+| Option | Default | Description |
+|---|---|---|
+| `ignoreError` | `false` | Don't emit on `error$` (the observable still errors). |
+| `withCredentials` | `true` | Send cookies with the request. |
+| `autoClose` | `true` | Complete after the first response (`take(1)`). |
+| `params` | — | `HttpParams` for the query string. |
+| `responseType` | `'json'` | `'json'` or `'blob'`. |
 
-  ngOnInit() {
-    // Get a single user
-    this.usersService.findById("123").subscribe((user) => {
-      console.log("Found user:", user);
-    });
-
-    // Create a new user
-    const newUser = { name: "Jane Doe", email: "jane.doe@example.com" };
-    this.usersService.create(newUser).subscribe((createdUser) => {
-      console.log("Created user:", createdUser);
-    });
-  }
-}
+```ts
+this.get<Stats>('/stats', { ignoreError: true });
 ```
 
-#### 3. Using the Service for Pagination
+## Development
 
-The `SearchRequestManager` class helps manage the state for paginated data grids.
-
-```typescript
-import { Component, OnInit, inject } from "@angular/core";
-import { UsersService, User } from "./services/users.service";
-import { SearchRequestManager, SearchRequestResponse } from "ngx-api-client";
-
-@Component({
-  /* ... */
-})
-export class UserListComponent implements OnInit {
-  private usersService = inject(UsersService);
-
-  public searchManager: SearchRequestManager;
-  public paginatedUsers$: Observable<SearchRequestResponse<User>>;
-
-  constructor() {
-    // 1. Instantiate the manager, passing it the service method to call
-    this.searchManager = new SearchRequestManager((request) => this.usersService.findByPagination(request));
-
-    // 2. Get the observable for the component template
-    this.paginatedUsers$ = this.searchManager.loadData();
-  }
-
-  ngOnInit() {
-    // Initial data is loaded automatically by the constructor.
-    // To reload the data at any time:
-    this.searchManager.reload();
-  }
-}
+```bash
+npm install
+npm run build-lib     # builds to dist/angular-core
+npm run publish-lib   # publishes dist/angular-core to npm
 ```
 
-### API Reference
+## License
 
-- **`NgxApiClientModule.forRoot(apiUrl: string)`**: The main module to be imported.
-- **`BaseCrudService<T, CreateDTO, UpdateDTO>`**: The base class to extend for your services.
-- **`BaseApiService`**: The underlying service. Contains the static event emitters `error$` and `unauthorized$`.
-- **`SearchRequestManager`**: A helper class for managing server-side pagination state.
-
----
-
-### License
-
-This project is licensed under the MIT License.
+[ISC](LICENSE) © Christian Moltó
